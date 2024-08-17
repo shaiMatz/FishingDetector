@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phishing URL Test</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #333;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 500px;
+            width: 100%;
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 24px;
+            color: #0073e6;
+            margin-bottom: 20px;
+        }
+
+        input[type="file"] {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            border: 2px dashed #0073e6;
+            border-radius: 8px;
+            background-color: #f0f8ff;
+            margin-bottom: 20px;
+            transition: background-color 0.3s ease;
+        }
+
+        input[type="file"]:hover {
+            background-color: #e6f4ff;
+        }
+
+        #urlList {
+            margin-top: 20px;
+            padding: 10px;
+            border-radius: 8px;
+            background-color: #f7f9fc;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            max-height: 400px;
+            overflow-y: auto;
+            text-align: left;
+            border: 1px solid #e0e7ff;
+        }
+
+        a {
+            display: block;
+            margin-bottom: 10px;
+            padding: 8px 12px;
+            font-size: 16px;
+            color: #0073e6;
+            text-decoration: none;
+            border-radius: 4px;
+            transition: background-color 0.3s ease, color 0.3s ease;
+            word-break: break-all;
+            overflow-wrap: break-word;
+        }
+
+        a:hover {
+            background-color: #0073e6;
+            color: #fff;
+        }
+
+        .phishing {
+            color: #e60023;
+            background-color: #ffe6e6;
+        }
+        
+        #results {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            justify-content: center;
+            margin-top: 20px;
+            padding: 10px;
+            border-radius: 8px;
+            background-color: #f7f9fc;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            text-align: left;
+            border: 1px solid #e0e7ff;
+        }
+
+        #loadMore {
+            margin-top: 20px;
+            padding: 12px 24px;
+            background-color: #0073e6;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s ease;
+        }
+
+        #loadMore:hover {
+            background-color: #005bb5;
+        }
+
+        #loadMore:disabled {
+            background-color: #ddd;
+            cursor: not-allowed;
+        }
+
+        @media (max-width: 600px) {
+            h1 {
+                font-size: 20px;
+            }
+
+            a {
+                font-size: 14px;
+            }
+
+            #loadMore {
+                font-size: 14px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>Phishing URL Test</h1>
+        <input type="file" id="csvFile" accept=".csv" />
+        <div id="urlList"></div>
+                    <h2>Analysis Results</h2>
+
+        <div id="results">
+            <p id="accuracy"></p>
+            <p id="precision"></p>
+            <p id="recall"></p>
+            <p id="f1"></p>
+        </div>
+        <button id="loadMore" style="display:none;">Load More</button>
+    </div>
+
+    <script>
+        let allUrls = [];
+        let currentIndex = 0;
+        const batchSize = 50;
+        let truePositives = 0;
+        let falsePositives = 0;
+        let trueNegatives = 0;
+        let falseNegatives = 0;
+
+    document.getElementById('csvFile').addEventListener('change', function (event) {
+        const file = event.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                const text = e.target.result;
+                allUrls = text.split('\n').map(row => {
+                    const columns = row.split(',');
+                    if (columns.length < 2) return null; // Skip rows that don't have both URL and label
+                    const url = columns[0].trim();
+                    const label = columns[1].trim().toLowerCase();
+                    return { url, label: label === 'phishing' };
+                }).filter(row => row !== null); // Filter out invalid rows
+                allUrls = shuffleArray(allUrls);
+                currentIndex = 0;
+                loadMoreUrls(); // Load the first batch
+            };
+            reader.readAsText(file);
+        }
+    });
+
+    function loadMoreUrls() {
+        const urlList = document.getElementById('urlList');
+        const nextUrls = allUrls.slice(currentIndex, currentIndex + batchSize);
+        currentIndex += batchSize;
+
+        nextUrls.forEach(({ url, label }) => {
+            const link = document.createElement('a');
+            link.href = url;
+            link.innerText = url;
+            link.className = 'check-phishing';
+            urlList.appendChild(link);
+
+            // Create a MutationObserver to watch for style changes
+            const observer = new MutationObserver((mutations) => {
+                mutations.forEach((mutation) => {
+                    if (mutation.type === 'attributes' && mutation.attributeName === 'style') {
+                        const isPhishing = window.getComputedStyle(link).color === 'rgb(255, 0, 0)'; // Check if the link is marked red
+
+                        // If the link is detected as phishing, process the results
+                        processDetectionResult(isPhishing, label, url);
+
+                        // Stop observing once we've confirmed the link is marked as phishing
+                        observer.disconnect();
+                    }
+                });
+            });
+
+            // Start observing the link element for attribute changes
+            observer.observe(link, { attributes: true });
+
+            // Add a delayed check to ensure we catch any missed changes
+            setTimeout(() => {
+                const isPhishing = window.getComputedStyle(link).color === 'rgb(255, 0, 0)'; // Check if the link is marked red
+
+                // Process the result during the delayed check
+                processDetectionResult(isPhishing, label, url);
+
+                // Disconnect the observer after the delayed check
+                observer.disconnect();
+            }, 1000); // Adjust the delay as needed
+        });
+
+        if (currentIndex < allUrls.length) {
+            document.getElementById('loadMore').style.display = 'inline-block';
+        } else {
+            document.getElementById('loadMore').style.display = 'none';
+        }
+    }
+
+    function processDetectionResult(isPhishing, label, url) {
+        console.log(`(Processed) URL: ${url}`);
+        console.log(`Label (Ground Truth): ${label}`);
+        console.log(`Detected as Phishing by Extension (Red Marked): ${isPhishing}`);
+
+        if (isPhishing && label) {
+            truePositives++; // Correctly flagged as phishing
+        } else if (isPhishing && !label) {
+            falsePositives++; // Incorrectly flagged as phishing
+        } else if (!isPhishing && !label) {
+            trueNegatives++; // Correctly identified as safe
+        } else if (!isPhishing && label) {
+            falseNegatives++; // Incorrectly identified as safe
+        }
+
+        updateResults(); // Update the metrics
+    }
+
+    function updateResults() {
+        const totalPredictions = truePositives + falsePositives + trueNegatives + falseNegatives;
+
+        const accuracy = totalPredictions > 0 ? (truePositives + trueNegatives) / totalPredictions : 0;
+        const precision = (truePositives + falsePositives) > 0 ? truePositives / (truePositives + falsePositives) : 0;
+        const recall = (truePositives + falseNegatives) > 0 ? truePositives / (truePositives + falseNegatives) : 0;
+        const f1 = (precision + recall) > 0 ? 2 * (precision * recall) / (precision + recall) : 0;
+
+        document.getElementById('accuracy').innerText = `Accuracy: ${(accuracy * 100).toFixed(2)}%`;
+        document.getElementById('precision').innerText = `Precision: ${(precision * 100).toFixed(2)}%`;
+        document.getElementById('recall').innerText = `Recall: ${(recall * 100).toFixed(2)}%`;
+        document.getElementById('f1').innerText = `F1 Score: ${(f1 * 100).toFixed(2)}%`;
+    }
+
+
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
+  
+
+        document.getElementById('loadMore').addEventListener('click', loadMoreUrls);
+    </script>
+    </body>
+
+</html>

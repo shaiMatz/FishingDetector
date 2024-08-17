@@ -7,15 +7,13 @@
         body {
             font-family: Arial, sans-serif;
             padding: 20px;
-            border-radius: 15px;
-            background-color: #f1f1f1;
             text-align: center;
-            backdrop-filter: blur(5px);
-            box-shadow:  0 0 10px rgba(0, 0, 0, 0.1);
         }
+
         h1 {
             color: #333;
         }
+
         #status {
             margin-top: 20px;
             padding: 10px;
@@ -23,12 +21,24 @@
             background-color: #fff;
             box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
         }
+
+        #analysisReport {
+            margin-top: 20px;
+            padding: 10px;
+            border-radius: 10px;
+            background-color: #e1f7d5;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            text-align: left;
+        }
     </style>
 </head>
 
 <body>
     <h1>Phishing Detector</h1>
     <div id="status">Extension is running...</div>
+    <div id="analysisReport">Loading analysis report...</div>
+    
+    <script src="popup.js"></script>
 </body>
 
 </html>

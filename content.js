@@ -171,6 +171,5 @@ function reportSuspiciousLinkToGoogle(url) {
     const googleReportUrl = `https://safebrowsing.google.com/safebrowsing/report_phish/?url=${encodeURIComponent(url)}`;
     window.open(googleReportUrl, '_blank'); // Opens the Google report page in a new tab
     alert(`Thank you! The suspicious link has been reported: ${url}`);
-
 }
 

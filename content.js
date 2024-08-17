@@ -1,4 +1,4 @@
-const API_KEY = 'AIzaSyDbZ1BP6NRUf0dg3gIVQ-0s6u8pfJ-J_0k';
+const API_KEY = ''; // Your Google Safe Browsing API key
 // Extract all URLs from the page
 const urls = Array.from(document.querySelectorAll('a')).map(link => link.href);
 
@@ -58,7 +58,6 @@ async function checkUrlWithGoogleSafeBrowsing(url) {
         return false;  // Skip checking if the URL is invalid
     }
 
-    const hashPrefix = await generateHashPrefix(canonicalUrl);
 
     const requestBody = {
         client: {

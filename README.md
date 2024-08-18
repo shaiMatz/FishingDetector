@@ -44,8 +44,44 @@ To set up and run the project locally, follow these steps:
 
 ## Usage
 
+### Automatic Detection
 - **Automatic Detection**: URLs on the webpage are automatically scanned for phishing or malware.
 - **Report Suspicious Links**: Click the "Report" button next to any flagged URL to report it to Google.
+
+### Using `index.html` for Systematic Testing
+
+The `index.html` file is designed to facilitate the systematic testing of the Phishing Detection and Reporting System using a CSV file of URLs. This file automates the process of feeding URLs to the Chrome extension and collecting results for analysis.
+
+#### Steps to Use `index.html`:
+
+1. **Prepare Your Dataset**:
+   - Ensure you have a CSV file (`dataset_phishing.csv`) containing the URLs you want to test. The CSV should be formatted with the URLs in one column and corresponding labels (e.g., phishing, legitimate) in another.
+
+2. **Open `index.html`**:
+   - Open Google Chrome and navigate to the directory where the project is located.
+   - Double-click on `index.html` or open it in Chrome by dragging the file into a new tab.
+
+3. **Upload the CSV File**:
+   - On the `index.html` page, you’ll see an interface prompting you to upload a CSV file.
+   - Click the "Choose File" button and select your `dataset_phishing.csv` file.
+
+4. **Start the Test**:
+   - Once the file is uploaded, the testing process will begin automatically.
+   - The system will use the Chrome extension to check each URL against the Google Safe Browsing API.
+
+5. **View Results**:
+   - After the test completes, the results (e.g., accuracy, precision, recall, F1 score) will be displayed directly on the page.
+   - These metrics are calculated by comparing the detection results from the Chrome extension against the labels in the dataset.
+
+6. **Analyze Results**:
+   - Use the results to evaluate the performance of the Phishing Detection and Reporting System.
+   - The page also allows you to download the results for further analysis.
+
+### Example of Running a Test:
+
+1. Upload the CSV file containing phishing and legitimate URLs.
+2. The system will automatically process each URL and display whether it was flagged as phishing or not.
+3. Results such as accuracy, precision, recall, and F1 score will be displayed after all URLs have been processed.
 
 ## Contributing
 
@@ -69,4 +105,3 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 ## Contact
 
 For any questions or suggestions, feel free to contact me at [Shaimatz99@gmail.com].
-

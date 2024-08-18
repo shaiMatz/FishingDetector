@@ -50,6 +50,27 @@
             background-color: #e6f4ff;
         }
 
+        #loadingSpinner {
+            display: none;
+            margin: 20px 0;
+            border: 8px solid #f3f3f3;
+            border-radius: 50%;
+            border-top: 8px solid #0073e6;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
         #urlList {
             margin-top: 20px;
             padding: 10px;
@@ -84,7 +105,7 @@
             color: #e60023;
             background-color: #ffe6e6;
         }
-        
+
         #results {
             display: flex;
             flex-wrap: wrap;
@@ -140,8 +161,9 @@
     <div class="container">
         <h1>Phishing URL Test</h1>
         <input type="file" id="csvFile" accept=".csv" />
+        <div id="loadingSpinner"></div>
         <div id="urlList"></div>
-                    <h2>Analysis Results</h2>
+        <h2>Analysis Results</h2>
 
         <div id="results">
             <p id="accuracy"></p>
@@ -161,121 +183,149 @@
         let trueNegatives = 0;
         let falseNegatives = 0;
 
-    document.getElementById('csvFile').addEventListener('change', function (event) {
-        const file = event.target.files[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onload = function (e) {
-                const text = e.target.result;
-                allUrls = text.split('\n').map(row => {
-                    const columns = row.split(',');
-                    if (columns.length < 2) return null; // Skip rows that don't have both URL and label
-                    const url = columns[0].trim();
-                    const label = columns[1].trim().toLowerCase();
-                    return { url, label: label === 'phishing' };
-                }).filter(row => row !== null); // Filter out invalid rows
-                allUrls = shuffleArray(allUrls);
-                currentIndex = 0;
-                loadMoreUrls(); // Load the first batch
-            };
-            reader.readAsText(file);
-        }
-    });
+        const checkedUrls = new Set();
+        const phishingUrlsCSV = new Set();
 
-    function loadMoreUrls() {
-        const urlList = document.getElementById('urlList');
-        const nextUrls = allUrls.slice(currentIndex, currentIndex + batchSize);
-        currentIndex += batchSize;
+        document.getElementById('csvFile').addEventListener('change', function (event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    try {
+                        showLoadingSpinner(true);
+                        const text = e.target.result;
+                        allUrls = text.split('\n').slice(1).map((row, index) => { // Skip the first row (titles)
+                            const columns = row.split(',');
+                            if (columns.length < 2) return null; // Skip rows that don't have both URL and label
 
-        nextUrls.forEach(({ url, label }) => {
-            const link = document.createElement('a');
-            link.href = url;
-            link.innerText = url;
-            link.className = 'check-phishing';
-            urlList.appendChild(link);
+                            const url = columns[0].trim();
+                            const label = columns[88] ? columns[88].trim().toLowerCase() : ''; // Using the last column for status
 
-            // Create a MutationObserver to watch for style changes
-            const observer = new MutationObserver((mutations) => {
-                mutations.forEach((mutation) => {
-                    if (mutation.type === 'attributes' && mutation.attributeName === 'style') {
-                        const isPhishing = window.getComputedStyle(link).color === 'rgb(255, 0, 0)'; // Check if the link is marked red
+                            // Count phishing URLs from CSV
+                            if (label === 'phishing') {
+                                phishingUrlsCSV.add(url);
+                            }
 
-                        // If the link is detected as phishing, process the results
-                        processDetectionResult(isPhishing, label, url);
+                            return { url, label: label === 'phishing' };
+                        }).filter(row => row !== null); // Filter out invalid rows
 
-                        // Stop observing once we've confirmed the link is marked as phishing
-                        observer.disconnect();
+                        currentIndex = 0; // Reset the index to start from the first URL
+                        truePositives = 0;
+                        falsePositives = 0;
+                        trueNegatives = 0;
+                        falseNegatives = 0;
+                        loadMoreUrls(); // Load the first batch
+                    } catch (error) {
+                        alert('Error reading the file. Please ensure it is a valid CSV.');
+                        console.error(error);
+                    } finally {
+                        showLoadingSpinner(false);
                     }
-                });
-            });
-
-            // Start observing the link element for attribute changes
-            observer.observe(link, { attributes: true });
-
-            // Add a delayed check to ensure we catch any missed changes
-            setTimeout(() => {
-                const isPhishing = window.getComputedStyle(link).color === 'rgb(255, 0, 0)'; // Check if the link is marked red
-
-                // Process the result during the delayed check
-                processDetectionResult(isPhishing, label, url);
-
-                // Disconnect the observer after the delayed check
-                observer.disconnect();
-            }, 1000); // Adjust the delay as needed
+                };
+                reader.onerror = function () {
+                    alert('Error reading the file. Please try again.');
+                    showLoadingSpinner(false);
+                };
+                reader.readAsText(file);
+            }
         });
 
-        if (currentIndex < allUrls.length) {
-            document.getElementById('loadMore').style.display = 'inline-block';
-        } else {
-            document.getElementById('loadMore').style.display = 'none';
-        }
-    }
-
-    function processDetectionResult(isPhishing, label, url) {
-        console.log(`(Processed) URL: ${url}`);
-        console.log(`Label (Ground Truth): ${label}`);
-        console.log(`Detected as Phishing by Extension (Red Marked): ${isPhishing}`);
-
-        if (isPhishing && label) {
-            truePositives++; // Correctly flagged as phishing
-        } else if (isPhishing && !label) {
-            falsePositives++; // Incorrectly flagged as phishing
-        } else if (!isPhishing && !label) {
-            trueNegatives++; // Correctly identified as safe
-        } else if (!isPhishing && label) {
-            falseNegatives++; // Incorrectly identified as safe
+        function showLoadingSpinner(show) {
+            const spinner = document.getElementById('loadingSpinner');
+            spinner.style.display = show ? 'block' : 'none';
         }
 
-        updateResults(); // Update the metrics
-    }
+        function loadMoreUrls() {
+            const urlList = document.getElementById('urlList');
+            urlList.innerHTML = ''; // Clear the current list
 
-    function updateResults() {
-        const totalPredictions = truePositives + falsePositives + trueNegatives + falseNegatives;
+            const nextUrls = allUrls.slice(currentIndex, currentIndex + batchSize);
+            currentIndex += batchSize;
 
-        const accuracy = totalPredictions > 0 ? (truePositives + trueNegatives) / totalPredictions : 0;
-        const precision = (truePositives + falsePositives) > 0 ? truePositives / (truePositives + falsePositives) : 0;
-        const recall = (truePositives + falseNegatives) > 0 ? truePositives / (truePositives + falseNegatives) : 0;
-        const f1 = (precision + recall) > 0 ? 2 * (precision * recall) / (precision + recall) : 0;
+            nextUrls.forEach(({ url, label }) => {
+                if (checkedUrls.has(url)) {
+                    return; // Skip processing if the URL has already been checked
+                }
 
-        document.getElementById('accuracy').innerText = `Accuracy: ${(accuracy * 100).toFixed(2)}%`;
-        document.getElementById('precision').innerText = `Precision: ${(precision * 100).toFixed(2)}%`;
-        document.getElementById('recall').innerText = `Recall: ${(recall * 100).toFixed(2)}%`;
-        document.getElementById('f1').innerText = `F1 Score: ${(f1 * 100).toFixed(2)}%`;
-    }
+                checkedUrls.add(url); // Add URL to the checked set
 
+                const linkContainer = document.createElement('div'); // Container for the link and label
+                linkContainer.style.display = 'flex';
+                linkContainer.style.alignItems = 'center';
+                linkContainer.style.justifyContent = 'space-between';
+                linkContainer.style.marginBottom = '10px';
 
-        function shuffleArray(array) {
-            for (let i = array.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [array[i], array[j]] = [array[j], array[i]];
+                const link = document.createElement('a');
+                link.href = url;
+                link.innerText = url;
+                link.className = 'check-phishing';
+                link.style.flex = '1';
+                linkContainer.appendChild(link);
+
+                const labelElement = document.createElement('span');
+                labelElement.style.marginLeft = '10px';
+                labelElement.style.padding = '5px 10px';
+                labelElement.style.borderRadius = '4px';
+                labelElement.style.fontWeight = 'bold';
+                labelElement.innerText = label ? 'Phishing' : 'Safe';
+                labelElement.style.backgroundColor = label ? '#ffcccc' : '#ccffcc';
+                labelElement.style.color = label ? '#e60023' : '#0073e6';
+                linkContainer.appendChild(labelElement);
+
+                urlList.appendChild(linkContainer);
+                setTimeout(() => {
+                    processDetectionResult(label, labelElement.innerText.toLowerCase() === 'phishing', url);
+                }, 500); // Adjust the delay if necessary
+            });
+            urlList.scrollTop = 0;
+
+            // Check if there are more URLs to load
+            if (currentIndex < allUrls.length) {
+                document.getElementById('loadMore').style.display = 'inline-block';
+            } else {
+                document.getElementById('loadMore').style.display = 'none';
             }
-            return array;
         }
 
-  
+        function processDetectionResult(expectedPhishing, isPhishing, url) {
+                if (expectedPhishing && isPhishing) {
+                    truePositives++; // Correctly flagged as phishing
+                } else if (expectedPhishing && !isPhishing) {
+                    falseNegatives++; // Incorrectly flagged as safe
+                } else if (!expectedPhishing && isPhishing) {
+                    falsePositives++; // Incorrectly flagged as phishing
+                } else if (!expectedPhishing && !isPhishing) {
+                    trueNegatives++; // Correctly identified as safe
+                }
+
+                // Additional check for UI indication failure
+                const isUIIndicatingPhishing = document.querySelector(`a[href="${url}"]`).classList.contains('phishing');
+                if (expectedPhishing && !isUIIndicatingPhishing) {
+                    falseNegatives++; // The UI failed to indicate phishing, incorrect detection
+                } else if (!expectedPhishing && isUIIndicatingPhishing) {
+                    falsePositives++; // The UI incorrectly indicated phishing
+                }
+
+                updateResults(); // Update the metrics
+            }
+
+
+        function updateResults() {
+            const totalPredictions = truePositives + falsePositives + trueNegatives + falseNegatives;
+
+            const accuracy = totalPredictions > 0 ? (truePositives + trueNegatives) / totalPredictions : 0;
+            const precision = (truePositives + falsePositives) > 0 ? truePositives / (truePositives + falsePositives) : 0;
+            const recall = (truePositives + falseNegatives) > 0 ? truePositives / (truePositives + falseNegatives) : 0;
+            const f1 = (precision + recall) > 0 ? 2 * (precision * recall) / (precision + recall) : 0;
+
+            document.getElementById('accuracy').innerText = `Accuracy: ${(accuracy * 100).toFixed(2)}%`;
+            document.getElementById('precision').innerText = `Precision: ${(precision * 100).toFixed(2)}%`;
+            document.getElementById('recall').innerText = `Recall: ${(recall * 100).toFixed(2)}%`;
+            document.getElementById('f1').innerText = `F1 Score: ${(f1 * 100).toFixed(2)}%`;
+        }
 
         document.getElementById('loadMore').addEventListener('click', loadMoreUrls);
     </script>
-    </body>
+</body>
 
 </html>
